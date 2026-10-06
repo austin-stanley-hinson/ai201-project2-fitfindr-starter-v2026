@@ -25,6 +25,38 @@ from generate import generate
 from utils.data_loader import load_listings
 
 
+# Filler words that shouldn't count toward a keyword match.
+STOPWORDS = {
+    "a", "an", "the", "and", "or", "for", "with", "in", "of", "to", "on",
+    "looking", "want", "need", "some", "something", "i", "me", "my",
+}
+
+
+def _words(text: str) -> set[str]:
+    """Lowercase words in `text`, with punctuation stripped off each one."""
+    words = (w.strip(".,!?;:'\"()—-") for w in text.lower().split())
+    return {w for w in words if w}
+
+
+def _size_matches(requested: str, listing_size: str) -> bool:
+    """
+    The size rule from the Tool Inventory: lowercase, drop parentheses, split
+    on "/" and spaces, and the requested size has to equal one of the pieces.
+    "One Size" listings match any size.
+    """
+    listing_size = listing_size.lower()
+    if listing_size.startswith("one size"):
+        return True
+    pieces = listing_size.replace("(", " ").replace(")", " ").replace("/", " ").split()
+    return requested.lower().strip() in pieces
+
+
+def _price(item: dict) -> str:
+    """$24 rather than $24.0, but $24.50 when there are cents."""
+    price = item["price"]
+    return f"${price:.0f}" if price == int(price) else f"${price:.2f}"
+
+
 # ── Tool 1: search_listings ───────────────────────────────────────────────────
 
 def search_listings(
@@ -78,8 +110,29 @@ def search_listings(
     Test it from a terminal before you move on:
         python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
     """
-    # TODO: replace this with your implementation
-    return []
+    keywords = _words(description) - STOPWORDS
+
+    scored = []
+    for listing in load_listings():
+        if max_price is not None and listing["price"] > max_price:
+            continue
+        if size is not None and not _size_matches(size, listing["size"]):
+            continue
+
+        text = " ".join([
+            listing["title"],
+            listing["description"],
+            listing["category"],
+            " ".join(listing["style_tags"]),
+            " ".join(listing["colors"]),
+        ])
+        score = len(keywords & _words(text))
+        if score > 0:
+            scored.append((score, listing))
+
+    # sorted() is stable, so ties keep the order they have in the data file
+    scored.sort(key=lambda pair: pair[0], reverse=True)
+    return [listing for _, listing in scored[:config.SEARCH_RESULT_LIMIT]]
 
 
 # ── Tool 2: suggest_outfit ────────────────────────────────────────────────────
@@ -112,8 +165,38 @@ def suggest_outfit(new_item: dict, wardrobe: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    item = (
+        f"{new_item['title']} — {new_item['category']}, "
+        f"colors: {', '.join(new_item['colors'])}, "
+        f"style: {', '.join(new_item['style_tags'])}"
+    )
+    items = wardrobe.get("items") or []
+
+    if not items:
+        prompt = (
+            f"Someone is thinking about buying this secondhand item:\n{item}\n\n"
+            "They haven't told us what's in their wardrobe. Give general styling "
+            "advice: one or two outfits built around this item, describing the "
+            "kinds of pieces it goes with. Refer to the item by its exact title, "
+            f'"{new_item["title"]}". Keep it under 120 words.'
+        )
+    else:
+        pieces = "\n".join(
+            f"- {w['name']} ({w['category']}; colors: {', '.join(w['colors'])}; "
+            f"style: {', '.join(w['style_tags'])})"
+            + (f" — {w['notes']}" if w.get("notes") else "")
+            for w in items
+        )
+        prompt = (
+            f"Someone is thinking about buying this secondhand item:\n{item}\n\n"
+            f"Here is what they already own:\n{pieces}\n\n"
+            "Suggest one or two outfits built around the new item, using pieces "
+            "from their wardrobe. Name each wardrobe piece exactly as it's "
+            "written above, and refer to the new item by its exact title, "
+            f'"{new_item["title"]}". Keep it under 120 words.'
+        )
+
+    return generate(prompt).strip()
 
 
 # ── Tool 3: create_fit_card ───────────────────────────────────────────────────
@@ -152,5 +235,26 @@ def create_fit_card(outfit: str, new_item: dict) -> str:
     Test it from a terminal before you move on:
         python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
     """
-    # TODO: replace this with your implementation
-    return ""
+    if not outfit or not outfit.strip():
+        return "Can't write a fit card without an outfit suggestion."
+
+    details = (
+        f"Item: {new_item['title']}\n"
+        f"Price: {_price(new_item)}\n"
+        f"Platform: {new_item['platform']}\n"
+        f"Condition: {new_item['condition']}\n"
+    )
+    if new_item.get("brand"):
+        details += f"Brand: {new_item['brand']}\n"
+
+    prompt = (
+        f"{details}\nHow they'll wear it:\n{outfit}\n\n"
+        "Write a caption someone would actually post about this thrift find. "
+        "2 to 4 sentences, casual, specific about the vibe — not a product "
+        f"description. Mention the price as {_price(new_item)} exactly once and "
+        f"the platform ({new_item['platform']}) exactly once."
+        + (f" Mention the brand, {new_item['brand']}." if new_item.get("brand") else "")
+        + " No hashtags. Return only the caption."
+    )
+
+    return generate(prompt).strip()
