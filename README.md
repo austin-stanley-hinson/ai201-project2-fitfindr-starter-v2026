@@ -45,6 +45,34 @@
 
 ---
 
+## Data Notes
+
+Notes from reading `data/listings.json` and `data/wardrobe_schema.json`
+(Milestone 1), before writing any tools.
+
+**A listing has:** `id` (str), `title` (str), `description` (str), `category`
+(str), `style_tags` (list of str), `size` (str), `condition` (str), `price`
+(float), `colors` (list of str), `brand` (str or null), `platform` (str).
+
+**A wardrobe item has:** `id`, `name`, `category`, `colors` (list),
+`style_tags` (list), `notes` (str or null). A wardrobe is `{"items": [...]}`,
+so an empty wardrobe is `{"items": []}`.
+
+**Things that will matter for `search_listings`:**
+
+- 40 listings across five categories: tops, bottoms, outerwear, shoes,
+  accessories.
+- Sizes aren't consistent — 22 different values, like `M`, `M/L`, `S/M`,
+  `XL (oversized)`, `One Size / Oversized`, `W30 L30`, `US 8.5`. An exact
+  match on `"M"` would miss `M/L` and `S/M`.
+- Prices are floats from $12 to $75, so `max_price` is a plain `<=` check.
+- `brand` is null on 32 of 40 listings, so nothing should depend on it being
+  there — including the fit card.
+- Words people search with ("graphic tee", "vintage", "grunge") mostly show up
+  in `style_tags` and `title`, so those are the fields to match against.
+
+---
+
 ## Tool Inventory
 
 <!-- Four lines per tool. This is worth 2 points and it's the single most
