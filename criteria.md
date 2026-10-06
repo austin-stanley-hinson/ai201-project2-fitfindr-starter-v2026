@@ -25,7 +25,7 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-4 of 5 allows for occasional parsing failures or wording that plain keyword matching misses. For example, “small” might not match “S” under the exact-token size rule, and the model might extract a size incorrectly.
+4 of 5 allows for occasional parsing failures or wording that plain keyword matching misses. For example, “small” might not match “S” under the exact-token size rule, and my regex parser only picks up a size written right after the word “size.” Two of the three tools also call the model, and a failed model call would end the run before the fit card.
 
 ---
 
@@ -59,7 +59,7 @@ These details make the card useful for a purchase decision, and the sentence lim
 
 ## 5. Exact size matching
 
-For the query “size S,” using a catalog containing both size S and size US 9 items, search_results includes the size S item and excludes every size US 9 item — in 5 of 5 tries.
+For the query “classic streetwear size S,” whose keywords match both size S items and the size US 9 sneakers in data/listings.json, search_results includes at least one size S item and excludes every size US 9 item — in 5 of 5 tries.
 
 **Why this target:**
 Size filtering uses a deterministic exact-token rule. Returning US 9 for S would violate that rule, so I expect it to pass every time.

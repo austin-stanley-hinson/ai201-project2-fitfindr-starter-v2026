@@ -241,10 +241,12 @@ Finally found the holy grail of thrifted denim that actually fits right. These v
   it returns `[]` and never includes the size S item. It also pointed out that
   my reason for criterion 1 says "the model might extract a size," but my
   README says the query is parsed with regex.
-- *What I changed:* I kept the criteria as I wrote them. They're committed
-  before any results, and unit 4 lets me add a revision underneath. Once the
-  tools were built I confirmed it: `search_listings('', size='S')` returns
-  `[]`.
+- *What I changed:* At first I kept the criteria as written. Once the tools
+  were built I confirmed the problem — `search_listings('', size='S')` returns
+  `[]` — so before running any evaluation I changed criterion 5's query to
+  `classic streetwear size S`. Its keywords match both the size S denim jacket
+  and the US 9 sneakers, so excluding the sneakers actually tests the size
+  rule. I also fixed reason 1 to talk about my regex parser instead of a model.
 
 **Moment 2**
 
