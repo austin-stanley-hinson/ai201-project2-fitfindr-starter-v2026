@@ -41,7 +41,13 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
-
+FitFindr is a shopping agent for secondhand clothes. You type what you're
+looking for in plain language, like `'vintage graphic tee under $30, size M'`,
+and it searches 40 thrift listings by keyword, size and price. If something
+matches, it takes the best match, suggests one or two outfits built from the
+pieces already in your wardrobe, and writes a short caption you could post
+about the find. If nothing matches, it stops and tells you which part of your
+search to loosen.
 
 ---
 
@@ -178,8 +184,19 @@ and `fit_card` still `None`.
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30'
 
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   **Outfit 1: Casual Streetwear**
+Pair the **Y2K Baby Tee — Butterfly Print** with the **Baggy straight-leg jeans, dark wash** for an iconic early-2000s silhouette. Layer the **Black cropped zip hoodie** over top (left unzipped to show off the graphic), and finish the look with **Chunky white sneakers** and the **Black crossbody bag**. 
+
+**Outfit 2: Edgy Contrast**
+Combine the **Y2K Baby Tee — Butterfly Print** with the **Wide-leg khaki trousers** for a fun mix of earthy tones and playful Y2K graphics. Throw on the **Vintage black denim jacket** and ground the outfit with the **Black combat boots**. Accentuate the waist using the **Brown leather belt**.
+
+  Fit card: finally found the ultimate early 2000s butterfly tee and i am literally never taking it off. snatched it on depop for just $18 and the fit is honestly unreal. gives major off-duty bratz doll energy.
+
+0 model calls this session, 2 served from cache
 ```
 
 **The three tools, tested one at a time**
@@ -216,15 +233,31 @@ Finally found the holy grail of thrifted denim that actually fits right. These v
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I gave Claude my five criteria and asked it to say
+  exactly how it would test each one from the sentence alone, without
+  suggesting improvements.
+- *What came back:* It said criterion 5 would fail as written. A query of just
+  `size S` leaves no keywords, and my search drops anything that scores 0, so
+  it returns `[]` and never includes the size S item. It also pointed out that
+  my reason for criterion 1 says "the model might extract a size," but my
+  README says the query is parsed with regex.
+- *What I changed:* I kept the criteria as I wrote them. They're committed
+  before any results, and unit 4 lets me add a revision underneath. Once the
+  tools were built I confirmed it: `search_listings('', size='S')` returns
+  `[]`.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* I had Claude build `create_fit_card` from my spec and
+  run it three times on the same item, which is the check Milestone 4 asks
+  for.
+- *What came back:* Three word-for-word identical captions. My `TEMPERATURE`
+  is 0.9, so that pointed at the response cache. Rerunning with
+  `AI201_CACHE=0` gave three different captions. One cached caption also wrote
+  the price as "thirty-eight dollars" even though the prompt asks for `$38`.
+- *What I changed:* I used the cache-off output for the `create_fit_card`
+  test in Sample Run. I'm keeping the "thirty-eight dollars" case in mind for
+  criterion 4, since it counts the price.
 
 <!-- ═══════════════════════ UNIT 4 — THE TEST ═══════════════════════
 
