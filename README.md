@@ -87,24 +87,51 @@ so an empty wardrobe is `{"items": []}`.
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters the 40 listings in `data/listings.json` by price
+  and size, scores what's left by how many of the description's keywords
+  appear in the listing's `title`, `style_tags`, `category`, `colors` and
+  `description`, and returns the best matches. No model call.
+- **Inputs:** `description` (str) — keywords like `"vintage graphic tee"`;
+  `size` (str or None) — e.g. `"M"`, `None` skips the size filter;
+  `max_price` (float or None) — inclusive ceiling, `None` skips the price
+  filter. **Size match rule:** the listing's size is lowercased, parentheses
+  are removed, and it's split on `/` and spaces into tokens; it matches if the
+  requested size is one of those tokens, so `"M"` matches `M`, `M/L` and `S/M`
+  but not `XL`, and `"S"` does not match `US 9`. Listings whose size starts
+  with "One Size" match any size.
+- **Returns:** A `list[dict]` of up to 10 (`config.SEARCH_RESULT_LIMIT`)
+  listing dicts, highest keyword score first. Each dict is a whole listing:
+  `id`, `title`, `description`, `category`, `style_tags` (list), `size`,
+  `condition`, `price` (float), `colors` (list), `brand` (str or None),
+  `platform`. Listings that score 0 are dropped.
+- **When it has nothing:** An empty list, `[]` — never `None` and never an
+  exception. This is what the loop branches on.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for one or two outfits built around the new
+  item, naming specific pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict) — one listing dict from `search_listings`;
+  `wardrobe` (dict) — `{"items": [...]}`, where each item has `id`, `name`,
+  `category`, `colors`, `style_tags`, `notes`. The list may be empty.
+- **Returns:** A non-empty `str` of outfit suggestions that names the new item
+  and at least one wardrobe piece by its `name`.
+- **When it has nothing:** If `wardrobe["items"]` is empty, it doesn't fail —
+  it asks the model for general styling advice for the item (what kinds of
+  pieces it goes with) and returns that as a non-empty `str`.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model to write a short, casual caption about the
+  find, the way someone would post it, using the outfit and the item details.
+- **Inputs:** `outfit` (str) — the string `suggest_outfit` returned;
+  `new_item` (dict) — the same listing dict that went into `suggest_outfit`.
+- **Returns:** A `str` caption of 2–4 sentences that mentions the item, its
+  `price` and its `platform` once each. It only mentions `brand` when it isn't
+  None.
+- **When it has nothing:** If `outfit` is empty or only whitespace, it skips
+  the model call and returns the message
+  `"Can't write a fit card without an outfit suggestion."`
 
 ---
 
@@ -121,13 +148,23 @@ so an empty wardrobe is `{"items": []}`.
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, put a message in
+`session["error"]` that says which filters were used (description, size, max
+price) and suggests loosening one of them, then return the session without
+calling `suggest_outfit` or `create_fit_card`. Otherwise, take the first
+result as `session["selected_item"]` and go on to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Regex. `under $30` / `$30` → `max_price = 30.0`;
+`size M` → `size = "M"`; whatever is left, minus filler words like "looking
+for", becomes `description`.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` → `parsed` (description, size,
+max_price) → `search_results` → `selected_item` (the first result) →
+`outfit_suggestion` → `fit_card`. On the empty path it stops after
+`search_results`, with `error` set and `selected_item`, `outfit_suggestion`
+and `fit_card` still `None`.
 
 ---
 
