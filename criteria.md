@@ -25,9 +25,7 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+4 of 5 allows for occasional parsing failures or wording that plain keyword matching misses. For example, “small” might not match “S” under the exact-token size rule, and the model might extract a size incorrectly.
 
 ---
 
@@ -37,66 +35,34 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+5 of 5 is fair because the empty-results branch is deterministic. No model is called before the [] check, so the same empty results should trigger the same behavior every time.
 
 ---
 
-## 3. Something about state
+## 3. State consistency
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+For a query that returns at least one item, outfit_suggestion names the exact title stored in session["selected_item"]["title"] — in 4 of 5 tries.
 
 **Why this target:**
-
-
+Naming the selected item gives me an observable check that the outfit suggestion refers to it. I expect this consistently, but allow one miss because the model may omit or paraphrase the title.
 
 ---
 
-## 4. Something about the fit card
+## 4. Fit card
 
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+For a successful search with a selected item, fit_card contains 2–4 sentences, mentions the item's price and platform exactly once each, and includes its brand when that brand is not None — in 4 of 5 tries.
 
 **Why this target:**
-
-
+These details make the card useful for a purchase decision, and the sentence limit keeps it concise. Since a model writes the card, one formatting or repetition mistake across five tries is reasonable.
 
 ---
 
-## 5. Your choice
+## 5. Exact size matching
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+For the query “size S,” using a catalog containing both size S and size US 9 items, search_results includes the size S item and excludes every size US 9 item — in 5 of 5 tries.
 
 **Why this target:**
-
-
+Size filtering uses a deterministic exact-token rule. Returning US 9 for S would violate that rule, so I expect it to pass every time.
 
 ---
 
